@@ -1,0 +1,15 @@
+menu "Troopercom Board"
+
+choice CUSTOMER_AUDIO_BOARD
+    prompt "Hardware Revision"
+    default TROOPERCOM_HELM_V1_0
+    help
+        Select an audio board to use with the ESP-ADF
+
+config TROOPERCOM_HELM_V1_0
+    bool "TrooperCom Helm v1.0"
+
+endchoice
+
+endmenu
+
