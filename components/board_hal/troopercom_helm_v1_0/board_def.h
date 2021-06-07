@@ -25,17 +25,41 @@
 #ifndef _AUDIO_BOARD_DEFINITION_H_
 #define _AUDIO_BOARD_DEFINITION_H_
 
+// Buttons
 #define BUTTON_VOLUP_ID           0
 #define BUTTON_VOLDOWN_ID         1
 #define BUTTON_MUTE_ID            2
 #define BUTTON_SET_ID             3
 
-#define PA_ENABLE_GPIO            GPIO_NUM_12
-#define ADC_DETECT_GPIO           GPIO_NUM_36
-#define BATTERY_DETECT_GPIO       GPIO_NUM_37
+// I2C
+#define I2C_SDA_GPIO                GPIO_NUM_34
+#define I2C_SCL_GPIO                GPIO_NUM_35
 
-#define SDCARD_OPEN_FILE_NUM_MAX  5
-#define SDCARD_INTR_GPIO          GPIO_NUM_34
+// I2S
+#define I2S_BCK_GPIO                GPIO_NUM_26
+#define I2S_WS_GPIO                 GPIO_NUM_25
+#define I2S_DOUT_GPIO               GPIO_NUM_27
+#define I2S_DIN_GPIO                (-1)
+
+// RGB LED
+#define LED_1G_GPIO                 GPIO_NUM_15
+#define LED_1R_GPIO                 GPIO_NUM_2
+#define LED_1B_GPIO                 GPIO_NUM_4
+
+#define LED_2G_GPIO                 GPIO_NUM_5
+#define LED_2R_GPIO                 GPIO_NUM_18
+#define LED_2B_GPIO                 GPIO_NUM_19
+
+#define LED_BT_GPIO                 GPIO_NUM_13
+
+// ??
+#define PA_ENABLE_GPIO              GPIO_NUM_12
+#define ADC_DETECT_GPIO             GPIO_NUM_36
+#define BATTERY_DETECT_GPIO         GPIO_NUM_37
+
+// SD / SPI
+#define SDCARD_OPEN_FILE_NUM_MAX    5
+#define SDCARD_INTR_GPIO            GPIO_NUM_34
 
 
 extern audio_hal_func_t AUDIO_NEW_CODEC_DEFAULT_HANDLE;

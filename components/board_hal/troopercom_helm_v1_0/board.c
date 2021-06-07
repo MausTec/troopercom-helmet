@@ -43,6 +43,8 @@ audio_board_handle_t audio_board_init(void)
     AUDIO_MEM_CHECK(TAG, board_handle, return NULL);
     board_handle->audio_hal = audio_board_codec_init();
 
+    audio_board_rgb_init();
+
     return board_handle;
 }
 
@@ -96,5 +98,80 @@ esp_err_t audio_board_deinit(audio_board_handle_t audio_board)
     ret |= audio_hal_deinit(audio_board->audio_hal);
     free(audio_board);
     board_handle = NULL;
+    ledc_fade_func_uninstall();
     return ret;
+}
+
+esp_err_t audio_board_rgb_init() {
+    esp_err_t ret = ESP_OK;
+
+    ledc_timer_config_t ledc_timer = {
+        .duty_resolution = LEDC_TIMER_8_BIT,
+        .freq_hz = 5000,
+        .speed_mode = LEDC_HIGH_SPEED_MODE,
+        .timer_num = LEDC_TIMER_0,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+
+    ledc_timer_config(&ledc_timer);
+
+    ledc_channel_config_t ledc_channel = {
+        .channel = LEDC_CHANNEL_0,
+        .duty = 0,
+        .gpio_num = LED_1G_GPIO,
+        .speed_mode = LEDC_HIGH_SPEED_MODE,
+        .hpoint = 0,
+        .timer_sel = LEDC_TIMER_0,
+    };
+
+    // Configure LED channels
+    ledc_channel.channel = LEDC_CHANNEL_0;
+    ledc_channel.gpio_num = LED_1G_GPIO;
+    ledc_channel_config(&ledc_channel);
+
+    ledc_channel.channel = LEDC_CHANNEL_1;
+    ledc_channel.gpio_num = LED_1R_GPIO;
+    ledc_channel_config(&ledc_channel);
+
+    ledc_channel.channel = LEDC_CHANNEL_2;
+    ledc_channel.gpio_num = LED_1B_GPIO;
+    ledc_channel_config(&ledc_channel);
+
+    ledc_channel.channel = LEDC_CHANNEL_3;
+    ledc_channel.gpio_num = LED_2G_GPIO;
+    ledc_channel_config(&ledc_channel);
+
+    ledc_channel.channel = LEDC_CHANNEL_4;
+    ledc_channel.gpio_num = LED_2R_GPIO;
+    ledc_channel_config(&ledc_channel);
+
+    ledc_channel.channel = LEDC_CHANNEL_5;
+    ledc_channel.gpio_num = LED_2B_GPIO;
+    ledc_channel_config(&ledc_channel);
+
+    ledc_channel.channel = LEDC_CHANNEL_6;
+    ledc_channel.gpio_num = LED_BT_GPIO;
+    ledc_channel_config(&ledc_channel);
+
+    ledc_fade_func_install(0);
+
+    return ret;
+}
+
+rgb_channel_config_t get_rgb_channel(rgb_channel_t channel) {
+    rgb_channel_config_t config = {
+        .mode = LEDC_HIGH_SPEED_MODE,
+    };
+
+    if (channel == RGB_CHANNEL_0) {
+        config.channel_b = LEDC_CHANNEL_2;
+        config.channel_g = LEDC_CHANNEL_0;
+        config.channel_r = LEDC_CHANNEL_1;
+    } else {
+        config.channel_g = LEDC_CHANNEL_3;
+        config.channel_r = LEDC_CHANNEL_4;
+        config.channel_b = LEDC_CHANNEL_5;
+    }
+
+    return config;
 }

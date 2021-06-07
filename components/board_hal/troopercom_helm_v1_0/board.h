@@ -30,6 +30,7 @@
 #include "board_pins_config.h"
 #include "esp_peripherals.h"
 #include "periph_sdcard.h"
+#include "driver/ledc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -44,6 +45,23 @@ struct audio_board_handle {
 };
 
 typedef struct audio_board_handle *audio_board_handle_t;
+
+/**
+ * 
+ */
+typedef struct rgb_channel_config {
+    ledc_channel_t channel_r;
+    ledc_channel_t channel_g;
+    ledc_channel_t channel_b;
+    ledc_mode_t mode;
+} rgb_channel_config_t;
+
+enum rgb_channel {
+    RGB_CHANNEL_0,
+    RGB_CHANNEL_1,
+};
+
+typedef enum rgb_channel rgb_channel_t;
 
 /**
  * @brief Initialize audio board
@@ -95,6 +113,9 @@ esp_err_t audio_board_sdcard_init(esp_periph_set_handle_t set, periph_sdcard_mod
  */
 audio_board_handle_t audio_board_get_handle(void);
 
+esp_err_t audio_board_rgb_init();
+
+
 /**
  * @brief Uninitialize the audio board
  *
@@ -104,6 +125,11 @@ audio_board_handle_t audio_board_get_handle(void);
  *          others  fail
  */
 esp_err_t audio_board_deinit(audio_board_handle_t audio_board);
+
+/**
+ * 
+ */
+rgb_channel_config_t get_rgb_channel(rgb_channel_t channel);
 
 #ifdef __cplusplus
 }

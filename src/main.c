@@ -31,6 +31,9 @@
 #include "filter_resample.h"
 #include "raw_stream.h"
 
+// Our nice, clean code.
+#include "rgb_control.h"
+
 #if (CONFIG_ESP_LYRATD_MSC_V2_1_BOARD || CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
 #include "filter_resample.h"
 #endif
@@ -341,66 +344,78 @@ void app_main(void)
     audio_pipeline_run(pipeline_e);
 
     ESP_LOGI(TAG, "[ 7 ] Listen for all pipeline events");
+    
+    // Fade LED
+    int64_t last_fade_us = 0;
+    rgb_color_t color = { .r = 16, .g = 0, .b = 0 };
+
     while (1) {
         audio_event_iface_msg_t msg;
-        esp_err_t ret = audio_event_iface_listen(evt, &msg, portMAX_DELAY);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "[ * ] Event interface error : %d", ret);
-            continue;
-        }
+        esp_err_t ret = audio_event_iface_listen(evt, &msg, 10);
+        if (ret == ESP_OK) {
+            if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *) bt_stream_reader
+                && msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
+                audio_element_info_t music_info = {0};
+                audio_element_getinfo(bt_stream_reader, &music_info);
 
-        if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *) bt_stream_reader
-            && msg.cmd == AEL_MSG_CMD_REPORT_MUSIC_INFO) {
-            audio_element_info_t music_info = {0};
-            audio_element_getinfo(bt_stream_reader, &music_info);
+                ESP_LOGI(TAG, "[ * ] Receive music info from Bluetooth, sample_rates=%d, bits=%d, ch=%d",
+                        music_info.sample_rates, music_info.bits, music_info.channels);
+    #if (CONFIG_ESP_LYRATD_MSC_V2_1_BOARD || CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
+                rsp_filter_set_src_info(filter_d, music_info.sample_rates, music_info.channels);
+                i2s_stream_set_clk(i2s_stream_writer, 48000, 16, 2);
+    #else
+                audio_element_setinfo(i2s_stream_writer, &music_info);
+                i2s_stream_set_clk(i2s_stream_writer, music_info.sample_rates, music_info.bits, music_info.channels);
+    #endif
 
-            ESP_LOGI(TAG, "[ * ] Receive music info from Bluetooth, sample_rates=%d, bits=%d, ch=%d",
-                     music_info.sample_rates, music_info.bits, music_info.channels);
-#if (CONFIG_ESP_LYRATD_MSC_V2_1_BOARD || CONFIG_ESP_LYRATD_MSC_V2_2_BOARD)
-            rsp_filter_set_src_info(filter_d, music_info.sample_rates, music_info.channels);
-            i2s_stream_set_clk(i2s_stream_writer, 48000, 16, 2);
-#else
-            audio_element_setinfo(i2s_stream_writer, &music_info);
-            i2s_stream_set_clk(i2s_stream_writer, music_info.sample_rates, music_info.bits, music_info.channels);
-#endif
+    #if defined CONFIG_ESP_LYRAT_MINI_V1_1_BOARD
+                i2s_stream_set_clk(i2s_stream_reader, music_info.sample_rates, music_info.bits, music_info.channels);
+    #endif
 
-#if defined CONFIG_ESP_LYRAT_MINI_V1_1_BOARD
-            i2s_stream_set_clk(i2s_stream_reader, music_info.sample_rates, music_info.bits, music_info.channels);
-#endif
+                continue;
+            }
+            if ((msg.source_type == PERIPH_ID_TOUCH || msg.source_type == PERIPH_ID_BUTTON || msg.source_type == PERIPH_ID_ADC_BTN)
+                && (msg.cmd == PERIPH_TOUCH_TAP || msg.cmd == PERIPH_BUTTON_PRESSED || msg.cmd == PERIPH_ADC_BUTTON_PRESSED)) {
 
-            continue;
-        }
-        if ((msg.source_type == PERIPH_ID_TOUCH || msg.source_type == PERIPH_ID_BUTTON || msg.source_type == PERIPH_ID_ADC_BTN)
-            && (msg.cmd == PERIPH_TOUCH_TAP || msg.cmd == PERIPH_BUTTON_PRESSED || msg.cmd == PERIPH_ADC_BUTTON_PRESSED)) {
+                // if ((int) msg.data == get_input_play_id()) {
+                //     ESP_LOGI(TAG, "[ * ] [Play] touch tap event");
+                //     periph_bluetooth_play(bt_periph);
+                // } else if ((int) msg.data == get_input_set_id()) {
+                //     ESP_LOGI(TAG, "[ * ] [Set] touch tap event");
+                //     periph_bluetooth_pause(bt_periph);
+                // } else if ((int) msg.data == get_input_volup_id()) {
+                //     ESP_LOGI(TAG, "[ * ] [Vol+] touch tap event");
+                //     periph_bluetooth_next(bt_periph);
+                // } else if ((int) msg.data == get_input_voldown_id()) {
+                //     ESP_LOGI(TAG, "[ * ] [Vol-] touch tap event");
+                //     periph_bluetooth_prev(bt_periph);
+                // }
+            }
 
-            // if ((int) msg.data == get_input_play_id()) {
-            //     ESP_LOGI(TAG, "[ * ] [Play] touch tap event");
-            //     periph_bluetooth_play(bt_periph);
-            // } else if ((int) msg.data == get_input_set_id()) {
-            //     ESP_LOGI(TAG, "[ * ] [Set] touch tap event");
-            //     periph_bluetooth_pause(bt_periph);
-            // } else if ((int) msg.data == get_input_volup_id()) {
-            //     ESP_LOGI(TAG, "[ * ] [Vol+] touch tap event");
-            //     periph_bluetooth_next(bt_periph);
-            // } else if ((int) msg.data == get_input_voldown_id()) {
-            //     ESP_LOGI(TAG, "[ * ] [Vol-] touch tap event");
-            //     periph_bluetooth_prev(bt_periph);
-            // }
-        }
-
-        /* Stop when the Bluetooth is disconnected or suspended */
-        if (msg.source_type == PERIPH_ID_BLUETOOTH
-            && msg.source == (void *)bt_periph) {
-            if (msg.cmd == PERIPH_BLUETOOTH_DISCONNECTED) {
-                ESP_LOGW(TAG, "[ * ] Bluetooth disconnected");
+            /* Stop when the Bluetooth is disconnected or suspended */
+            if (msg.source_type == PERIPH_ID_BLUETOOTH
+                && msg.source == (void *)bt_periph) {
+                if (msg.cmd == PERIPH_BLUETOOTH_DISCONNECTED) {
+                    ESP_LOGW(TAG, "[ * ] Bluetooth disconnected");
+                    break;
+                }
+            }
+            /* Stop when the last pipeline element (i2s_stream_writer in this case) receives stop event */
+            if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *) i2s_stream_writer
+                && msg.cmd == AEL_MSG_CMD_REPORT_STATUS && (int) msg.data == AEL_STATUS_STATE_STOPPED) {
+                ESP_LOGW(TAG, "[ * ] Stop event received");
                 break;
             }
         }
-        /* Stop when the last pipeline element (i2s_stream_writer in this case) receives stop event */
-        if (msg.source_type == AUDIO_ELEMENT_TYPE_ELEMENT && msg.source == (void *) i2s_stream_writer
-            && msg.cmd == AEL_MSG_CMD_REPORT_STATUS && (int) msg.data == AEL_STATUS_STATE_STOPPED) {
-            ESP_LOGW(TAG, "[ * ] Stop event received");
-            break;
+
+        // This is L00p
+        if (esp_timer_get_time() - last_fade_us > 50000) {
+            color = hueshift(color, 30);
+            ESP_LOGD(TAG, "Setting color: #%02x%02x%02x", color.r, color.g, color.b);
+            last_fade_us = esp_timer_get_time();
+            hsv_color_t x = rgb2hsv(color);
+            ESP_LOGD(TAG, "HSV(%f, %f, %f)", x.h, x.s, x.v);
+            rgb_control_set_color(RGB_CHANNEL_0, color);
         }
     }
 
